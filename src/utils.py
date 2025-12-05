@@ -6,6 +6,12 @@ from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, mean_absolute_error
 from scipy.spatial.distance import jensenshannon
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+from opacus import PrivacyEngine
+from opacus.validators import ModuleValidator
 import config
 
 # classify income into categories based on thresholds
@@ -287,44 +293,125 @@ def apply_multilayer_dp(census, epsilon=None, delta=None, k_threshold=None):
 
     return suppressed
 
-# neural network for DP-SGD
+# PyTorch neural network model for DP-SGD
+class SimpleNN(nn.Module):
+    def __init__(self, input_size, hidden_sizes, output_size):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_sizes[0])
+        self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fc3 = nn.Linear(hidden_sizes[1], output_size)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+# Real DP-SGD implementation using Opacus
 class DPNeuralNetwork:
     def __init__(self, epsilon=None, delta=None, clip_norm=None):
         self.epsilon = epsilon if epsilon is not None else config.EPSILON
         self.delta = delta if delta is not None else config.DELTA
         self.clip_norm = clip_norm if clip_norm is not None else config.DPSGD_CLIP_NORM
         self.model = None
+        self.label_encoder = {}
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    def calculate_noise_scale(self, n_samples, n_epochs=None, batch_size=None):
-        if n_epochs is None:
-            n_epochs = config.DPSGD_N_EPOCHS
+    def fit(self, X_train, y_train, epochs=None, batch_size=None, verbose=False):
+        if epochs is None:
+            epochs = config.DPSGD_N_EPOCHS
         if batch_size is None:
             batch_size = config.DPSGD_BATCH_SIZE
 
-        steps = (n_samples // batch_size) * n_epochs
-        noise_multiplier = self.clip_norm * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
-        return noise_multiplier * np.sqrt(steps)
+        # Encode labels to integers
+        unique_labels = sorted(y_train.unique())
+        self.label_encoder = {label: idx for idx, label in enumerate(unique_labels)}
+        self.inverse_label_encoder = {idx: label for label, idx in self.label_encoder.items()}
 
-    def fit(self, X_train, y_train):
-        self.model = MLPClassifier(
-            hidden_layer_sizes=config.NN_HIDDEN_LAYERS,
-            max_iter=config.DPSGD_N_EPOCHS,
-            learning_rate_init=0.01,
-            random_state=config.ML_RANDOM_STATE
+        y_encoded = y_train.map(self.label_encoder).values
+
+        # Convert to PyTorch tensors
+        X_tensor = torch.FloatTensor(X_train.values)
+        y_tensor = torch.LongTensor(y_encoded)
+
+        # Create DataLoader
+        dataset = TensorDataset(X_tensor, y_tensor)
+        train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        # Initialize model
+        input_size = X_train.shape[1]
+        output_size = len(unique_labels)
+        self.model = SimpleNN(input_size, config.NN_HIDDEN_LAYERS, output_size)
+
+        # Make model compatible with Opacus
+        self.model = ModuleValidator.fix(self.model)
+        self.model = self.model.to(self.device)
+
+        # Define loss and optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.model.parameters(), lr=0.01)
+
+        # Attach privacy engine
+        privacy_engine = PrivacyEngine()
+        self.model, optimizer, train_loader = privacy_engine.make_private(
+            module=self.model,
+            optimizer=optimizer,
+            data_loader=train_loader,
+            noise_multiplier=1.0,  # Will be adjusted automatically
+            max_grad_norm=self.clip_norm,
         )
 
-        noise_scale = self.calculate_noise_scale(len(X_train))
-        self.model.fit(X_train, y_train)
+        # Training loop
+        self.model.train()
+        for epoch in range(epochs):
+            epoch_loss = 0
+            for batch_X, batch_y in train_loader:
+                batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
 
-        # add noise to weights to simulate DP-SGD
-        for i in range(len(self.model.coefs_)):
-            noise = np.random.laplace(0, noise_scale, size=self.model.coefs_[i].shape)
-            self.model.coefs_[i] = self.model.coefs_[i] + noise
+                optimizer.zero_grad()
+                outputs = self.model(batch_X)
+                loss = criterion(outputs, batch_y)
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+
+            # Get privacy spent
+            epsilon_spent = privacy_engine.get_epsilon(delta=self.delta)
+
+            if verbose and (epoch + 1) % 10 == 0:
+                print(f'Epoch [{epoch+1}/{epochs}], Loss: {epoch_loss/len(train_loader):.4f}, ε: {epsilon_spent:.2f}')
+
+            # Stop if we've exceeded our privacy budget
+            if epsilon_spent > self.epsilon:
+                if verbose:
+                    print(f'Privacy budget exceeded at epoch {epoch+1}. Stopping training.')
+                break
+
+        # Final privacy accounting
+        final_epsilon = privacy_engine.get_epsilon(delta=self.delta)
+        if verbose:
+            print(f'Final DP guarantee: (ε={final_epsilon:.2f}, δ={self.delta})')
 
         return self
 
     def predict(self, X):
-        return self.model.predict(X)
+        if self.model is None:
+            raise ValueError("Model has not been trained yet. Call fit() first.")
+
+        self.model.eval()
+        X_tensor = torch.FloatTensor(X.values if hasattr(X, 'values') else X).to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(X_tensor)
+            _, predicted = torch.max(outputs, 1)
+
+        # Decode predictions back to original labels
+        predictions = predicted.cpu().numpy()
+        decoded_predictions = [self.inverse_label_encoder[idx] for idx in predictions]
+
+        return np.array(decoded_predictions)
 
 # conduct utility assessment
 def assess_utility(census_original, census_protected):
@@ -398,14 +485,19 @@ def assess_utility(census_original, census_protected):
     )
 
     # overall utility score
+    # normalize income MAE to 0-1 scale (assuming max acceptable error is $100k)
+    income_utility = 1 - min(metrics['income_mae'] / 100000, 1.0)
+
     utility_components = [
-        1 - metrics['education_tvd'],
-        1 - metrics['occupation_tvd'],
-        1 - metrics['education_jsd'],
-        1 - metrics['occupation_jsd'],
-        metrics['education_dist_acc'],
-        metrics['occupation_dist_acc']
+        income_utility,                     # income normalized MAE
+        1 - metrics['education_tvd'],       # education TVD
+        1 - metrics['occupation_tvd'],      # occupation TVD
+        1 - metrics['education_jsd'],       # education JSD
+        1 - metrics['occupation_jsd'],      # occupation JSD
+        metrics['education_dist_acc'],      # education distribution accuracy
+        metrics['occupation_dist_acc']      # occupation distribution accuracy
     ]
     metrics['overall_utility'] = np.mean(utility_components)
+    metrics['income_utility'] = income_utility
 
     return metrics

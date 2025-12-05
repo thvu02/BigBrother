@@ -44,8 +44,16 @@ for method_name, method_results in all_dp_methods.items():
         overall_avg = np.mean([income_avg, edu_avg, occ_avg])
         print(f'{method_name:<25} {income_avg:>10.2%} {edu_avg:>10.2%} {occ_avg:>10.2%} {overall_avg:>10.2%}')
 
-dp_sgd_avg = np.mean(list(dp_sgd_results.values()))
-print(f'{"DP-SGD":<25} {dp_sgd_results["income"]:>10.2%} {dp_sgd_results["education"]:>10.2%} {dp_sgd_results["occupation"]:>10.2%} {dp_sgd_avg:>10.2%}')
+        # Store DP-SGD average for later use if it's in all_dp_methods
+        if method_name == 'DP-SGD':
+            dp_sgd_avg = overall_avg
+            dp_sgd_reduction = baseline_avg - overall_avg
+
+# Only use dp_sgd_results if DP-SGD was not in all_dp_methods (backward compatibility)
+if 'DP-SGD' not in all_dp_methods:
+    dp_sgd_avg = np.mean(list(dp_sgd_results.values()))
+    dp_sgd_reduction = baseline_avg - dp_sgd_avg
+    print(f'{"DP-SGD (attack model)":<25} {dp_sgd_results["income"]:>10.2%} {dp_sgd_results["education"]:>10.2%} {dp_sgd_results["occupation"]:>10.2%} {dp_sgd_avg:>10.2%}')
 
 print('\n1.2 Reconstruction Attack Accuracy Reduction from Baseline:')
 print('-'*80)
@@ -59,10 +67,20 @@ for method_name, method_results in all_dp_methods.items():
         occ_avg = np.mean(list(method_results['occupation'].values()))
         overall_avg = np.mean([income_avg, edu_avg, occ_avg])
         reduction = baseline_avg - overall_avg
-        print(f'{method_name:<25} {overall_avg:>13.2%} {reduction:>13.2%} {"N/A":>14s}')
 
-dp_sgd_reduction = baseline_avg - dp_sgd_avg
-print(f'{"DP-SGD":<25} {dp_sgd_avg:>13.2%} {dp_sgd_reduction:>13.2%} {"N/A":>14s}')
+        # Get utility string for this method
+        if method_name in utility_metrics:
+            util_str = f'{utility_metrics[method_name]["overall_utility"]*100:>13.2f}%'
+        else:
+            util_str = 'N/A'
+
+        print(f'{method_name:<25} {overall_avg:>13.2%} {reduction:>13.2%} {util_str:>14s}')
+
+# Only show separate DP-SGD line if not already in all_dp_methods
+if 'DP-SGD' not in all_dp_methods:
+    dp_sgd_reduction = baseline_avg - dp_sgd_avg
+    dpsgd_utility_str = f'{utility_metrics.get("DP-SGD", {}).get("overall_utility", 0)*100:>13.2f}%' if 'DP-SGD' in utility_metrics else 'N/A'
+    print(f'{"DP-SGD (attack model)":<25} {dp_sgd_avg:>13.2%} {dp_sgd_reduction:>13.2%} {dpsgd_utility_str:>14s}')
 
 adaptive_results = all_dp_methods.get('Adaptive Budget', None)
 if adaptive_results:
@@ -136,7 +154,10 @@ for method_name in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
         else:
             assessment = 'POOR'
         print(f'{method_name:<25} {util*100:>18.2f}% {assessment:>12s}')
-print('\nNote: DP-SGD protects model training, not data (utility metrics N/A)')
+if 'DP-SGD' in utility_metrics:
+    print(f'\nNote: DP-SGD utility score: {utility_metrics["DP-SGD"]["overall_utility"]*100:.2f}%')
+else:
+    print('\nNote: DP-SGD utility metrics not available in this run')
 
 ### Wrap up
 
@@ -160,10 +181,13 @@ if adaptive_results:
     print(f'   - Utility score: {utility_metrics["Adaptive Budget"]["overall_utility"]*100:.2f}%')
     print(f'   - Model-agnostic (all 4 ML models tested)')
 
-print(f'\n3. Strongest Protection: DP-SGD')
-print(f'   - Average accuracy: {dp_sgd_avg:.2%} (below random for all attributes!)')
-print(f'   - Reduction: {dp_sgd_reduction:.2%}')
-print(f'   - Trade-off: Very strong privacy but low utility')
+if 'dp_sgd_avg' in locals() and 'dp_sgd_reduction' in locals():
+    print(f'\n3. Strongest Protection: DP-SGD')
+    print(f'   - Average accuracy: {dp_sgd_avg:.2%}')
+    print(f'   - Reduction: {dp_sgd_reduction:.2%}')
+    if 'DP-SGD' in utility_metrics:
+        print(f'   - Utility: {utility_metrics["DP-SGD"]["overall_utility"]*100:.2f}%')
+    print(f'   - Trade-off: Strong privacy with utility tradeoff')
 
 multilayer_reident = dp_reident.get('Multi-Layer', {})
 multilayer_reident_acc = multilayer_reident.get('acc', 0)
@@ -206,8 +230,12 @@ print(f'     Best k-anonymity: k={multilayer_reident_k:.1f} (vs baseline k={reid
 print(f'     Reidentification: {multilayer_reident_acc:.2%} accuracy')
 print('     Trade-off: Record suppression (may retain <100% of data)')
 
-print('\nFor Maximum Reconstruction Protection:')
-print('  -> DP-SGD')
-print(f'     Strongest reconstruction defense: {dp_sgd_avg:.0%} accuracy ({dp_sgd_reduction:.0%} reduction)')
-print('     Below random baseline (attackers gain nothing!)')
-print('     Trade-off: Very low utility for ML tasks')
+if 'dp_sgd_avg' in locals() and 'dp_sgd_reduction' in locals():
+    print('\nFor Maximum Reconstruction Protection:')
+    print('  -> DP-SGD')
+    print(f'     Strongest reconstruction defense: {dp_sgd_avg:.0%} accuracy ({dp_sgd_reduction:.0%} reduction)')
+    if dp_sgd_avg < 25:  # Below random for most tasks
+        print('     Below random baseline (attackers gain nothing!)')
+    if 'DP-SGD' in utility_metrics:
+        print(f'     Utility: {utility_metrics["DP-SGD"]["overall_utility"]*100:.0f}%')
+    print('     Trade-off: Utility varies based on privacy budget')

@@ -54,12 +54,17 @@ for method_name, method_results in all_dp_methods.items():
             'Average': overall_avg
         }
 
-dp_reconstruction['DP-SGD'] = {
-    'Income': dp_sgd_results['income'] * 100,
-    'Education': dp_sgd_results['education'] * 100,
-    'Occupation': dp_sgd_results['occupation'] * 100,
-    'Average': np.mean([dp_sgd_results['income'], dp_sgd_results['education'], dp_sgd_results['occupation']]) * 100
-}
+# Only add DP-SGD from dp_sgd_results if it wasn't already added from all_dp_methods
+# dp_sgd_results contains DP model attack performance (not protection effectiveness)
+# We want protection effectiveness, which comes from all_dp_methods['DP-SGD']
+if 'DP-SGD' not in dp_reconstruction:
+    # Fallback: Use DP-SGD model attack results (old behavior)
+    dp_reconstruction['DP-SGD'] = {
+        'Income': dp_sgd_results['income'] * 100,
+        'Education': dp_sgd_results['education'] * 100,
+        'Occupation': dp_sgd_results['occupation'] * 100,
+        'Average': np.mean([dp_sgd_results['income'], dp_sgd_results['education'], dp_sgd_results['occupation']]) * 100
+    }
 
 dp_reident_acc = {'Baseline': baseline_reident_acc}
 dp_reident_k = {'Baseline': baseline_reident_k}
@@ -92,7 +97,8 @@ for attr in ['income', 'education', 'occupation']:
 utility_scores = {
     'Adaptive Budget': utility_metrics['Adaptive Budget']['overall_utility'] * 100,
     'Original Laplace': utility_metrics['Original Laplace']['overall_utility'] * 100,
-    'Multi-Layer': utility_metrics['Multi-Layer']['overall_utility'] * 100
+    'Multi-Layer': utility_metrics['Multi-Layer']['overall_utility'] * 100,
+    'DP-SGD': utility_metrics.get('DP-SGD', {}).get('overall_utility', 0) * 100
 }
 
 fig = plt.figure(figsize=(20, 12))
@@ -253,7 +259,7 @@ for method in dp_reconstruction.keys():
 
 plot_methods = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer', 'DP-SGD']
 x_vals = [privacy_protection[m] for m in plot_methods]
-y_vals = [0, 85, utility_scores['Adaptive Budget'], 80, 40]
+y_vals = [0, utility_scores['Original Laplace'], utility_scores['Adaptive Budget'], utility_scores['Multi-Layer'], utility_scores.get('DP-SGD', 0)]
 colors6 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22']
 sizes = [200, 200, 300, 200, 200]
 
@@ -295,14 +301,22 @@ for method in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
         'Utility': utility_scores.get(method, 0)
     }
 
-# DP-SGD doesn't protect reidentification or produce protected dataset
-# (only protects model training, so data utility metrics don't apply)
-summary_data['DP-SGD'] = {
-    'Reident. Reduction': 0,
-    'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
-    'k-Anonymity': 1,
-    'Utility': 0  # N/A - DP-SGD doesn't produce protected data, only protects model training
-}
+# DP-SGD now produces protected data and has proper metrics
+if 'DP-SGD' in dp_reidentification:
+    summary_data['DP-SGD'] = {
+        'Reident. Reduction': (dp_reidentification['Baseline']['acc'] - dp_reidentification['DP-SGD']['acc']) / dp_reidentification['Baseline']['acc'] * 100,
+        'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
+        'k-Anonymity': (dp_reidentification['DP-SGD']['k'] - dp_reidentification['Baseline']['k']) / dp_reidentification['Baseline']['k'] * 100,
+        'Utility': utility_scores.get('DP-SGD', 0)
+    }
+else:
+    # Fallback if DP-SGD data not available
+    summary_data['DP-SGD'] = {
+        'Reident. Reduction': 0,
+        'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
+        'k-Anonymity': 0,
+        'Utility': utility_scores.get('DP-SGD', 0)
+    }
 
 metrics = ['Reident.\nReduction', 'Recon.\nReduction', 'k-Anonymity\nImprovement', 'Utility']
 x = np.arange(len(metrics))
@@ -440,12 +454,13 @@ ax.grid(axis='y', alpha=0.3)
 
 # ==================== KEY FINDING 4: Utility Preserved ====================
 ax = axes[1, 1]
-# Note: DP-SGD excluded from utility comparison as it doesn't produce protected data
-methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+# All methods now have utility scores
+methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer', 'DP-SGD']
 utilities = [utility_scores['Original Laplace'],
              utility_scores['Adaptive Budget'],
-             utility_scores['Multi-Layer']]
-colors4 = ['#3498db', '#2ecc71', '#9b59b6']
+             utility_scores['Multi-Layer'],
+             utility_scores.get('DP-SGD', 0)]
+colors4 = ['#3498db', '#2ecc71', '#9b59b6', '#e67e22']
 
 bars4 = ax.bar(methods4, utilities, color=colors4, alpha=0.7, edgecolor='black', linewidth=2)
 ax.set_ylabel('Overall Utility Score (%)', fontweight='bold', fontsize=11)
@@ -472,11 +487,6 @@ for i, (bar, util) in enumerate(zip(bars4, utilities)):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height()/2,
            assessment, ha='center', va='center', fontsize=9, fontweight='bold',
            color='white', bbox=dict(boxstyle='round', facecolor=color, alpha=0.8))
-
-# Add note about DP-SGD
-ax.text(0.5, 0.05, '*DP-SGD excluded: protects model training, not data (utility N/A)',
-       transform=ax.transAxes, fontsize=8, style='italic', ha='center',
-       bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
 ax.legend(fontsize=9, loc='upper right')
 ax.grid(axis='y', alpha=0.3)
