@@ -37,16 +37,43 @@ def reidentification_attack(ads, census):
     use_protected = 'age_protected' in census.columns and 'zip_protected' in census.columns
 
     if use_protected:
+        # Detect generalization level by examining a sample ZIP code
+        sample_zip = census['zip_protected'].iloc[0]
+        # Count the number of 'X's to determine generalization level
+        num_x = sample_zip.count('X')
+
+        # Detect if using coarse age groups (3 groups) vs standard (6 groups)
+        unique_age_groups = census['age_protected'].unique()
+        use_coarse_age = len(unique_age_groups) <= 3
+
         # Use protected quasi-identifiers (generalized)
         for _, user in user_targeting.iterrows():
             age_group = user['target_ages']
             gender = user['target_gender']
-            zip_3digit = str(user['target_locations'])[:3] + 'XX'
+
+            # Map standard age group to coarse age group if needed
+            if use_coarse_age:
+                # Map standard age groups to coarse age groups
+                age_mapping = {
+                    '18-24': '18-34',
+                    '25-34': '18-34',
+                    '35-44': '35-54',
+                    '45-54': '35-54',
+                    '55-64': '55+',
+                    '65+': '55+'
+                }
+                age_group = age_mapping.get(age_group, age_group)
+
+            # Generate ZIP pattern based on generalization level
+            if num_x == 3:  # 2-digit ZIP (e.g., "90XXX")
+                zip_pattern = str(user['target_locations'])[:2] + 'XXX'
+            else:  # 2 X's means 3-digit ZIP (e.g., "900XX")
+                zip_pattern = str(user['target_locations'])[:3] + 'XX'
 
             matches = census[
                 (census['age_protected'] == age_group) &
                 (census['gender'] == gender) &
-                (census['zip_protected'] == zip_3digit)
+                (census['zip_protected'] == zip_pattern)
             ]
 
             predicted = matches.iloc[0]['person_id'] if len(matches) > 0 else None
