@@ -90,9 +90,9 @@ for attr in ['income', 'education', 'occupation']:
         model_variance[attr_key][key] = acc * 100
 
 utility_scores = {
-    'Adaptive Budget': utility_metrics['overall_utility'] * 100,
-    'Original Laplace': 85.0,
-    'Multi-Layer': 80.0
+    'Adaptive Budget': utility_metrics['Adaptive Budget']['overall_utility'] * 100,
+    'Original Laplace': utility_metrics['Original Laplace']['overall_utility'] * 100,
+    'Multi-Layer': utility_metrics['Multi-Layer']['overall_utility'] * 100
 }
 
 fig = plt.figure(figsize=(20, 12))
@@ -295,12 +295,13 @@ for method in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
         'Utility': utility_scores.get(method, 0)
     }
 
-# DP-SGD doesn't protect reidentification
+# DP-SGD doesn't protect reidentification or produce protected dataset
+# (only protects model training, so data utility metrics don't apply)
 summary_data['DP-SGD'] = {
     'Reident. Reduction': 0,
     'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
     'k-Anonymity': 1,
-    'Utility': 40
+    'Utility': 0  # N/A - DP-SGD doesn't produce protected data, only protects model training
 }
 
 metrics = ['Reident.\nReduction', 'Recon.\nReduction', 'k-Anonymity\nImprovement', 'Utility']
@@ -439,12 +440,12 @@ ax.grid(axis='y', alpha=0.3)
 
 # ==================== KEY FINDING 4: Utility Preserved ====================
 ax = axes[1, 1]
-methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer', 'DP-SGD']
-utilities = [utility_scores.get('Original Laplace', 85),
+# Note: DP-SGD excluded from utility comparison as it doesn't produce protected data
+methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+utilities = [utility_scores['Original Laplace'],
              utility_scores['Adaptive Budget'],
-             utility_scores.get('Multi-Layer', 80),
-             40]
-colors4 = ['#3498db', '#2ecc71', '#9b59b6', '#e67e22']
+             utility_scores['Multi-Layer']]
+colors4 = ['#3498db', '#2ecc71', '#9b59b6']
 
 bars4 = ax.bar(methods4, utilities, color=colors4, alpha=0.7, edgecolor='black', linewidth=2)
 ax.set_ylabel('Overall Utility Score (%)', fontweight='bold', fontsize=11)
@@ -472,7 +473,12 @@ for i, (bar, util) in enumerate(zip(bars4, utilities)):
            assessment, ha='center', va='center', fontsize=9, fontweight='bold',
            color='white', bbox=dict(boxstyle='round', facecolor=color, alpha=0.8))
 
-ax.legend(fontsize=9, loc='lower right')
+# Add note about DP-SGD
+ax.text(0.5, 0.05, '*DP-SGD excluded: protects model training, not data (utility N/A)',
+       transform=ax.transAxes, fontsize=8, style='italic', ha='center',
+       bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+ax.legend(fontsize=9, loc='upper right')
 ax.grid(axis='y', alpha=0.3)
 
 plt.tight_layout()

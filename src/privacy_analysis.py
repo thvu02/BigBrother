@@ -212,24 +212,72 @@ for attr in ['income', 'education', 'occupation']:
 
 ### UTILITY ASSESSMENT
 
-print('\n6.1 Utility Assessment for Adaptive Budget DP:')
+print('\n6.1 Utility Assessment for Original Laplace DP:')
 print('-'*80)
-utility_metrics = assess_utility(census_enhanced, census_adaptive_dp)
+utility_metrics_original = assess_utility(census_enhanced, census_original_dp)
 
-print(f'Income MAE: ${utility_metrics["income_mae"]:,.2f}')
-print(f'Education TVD: {utility_metrics["education_tvd"]:.4f} (similarity: {(1-utility_metrics["education_tvd"])*100:.2f}%)')
-print(f'Occupation TVD: {utility_metrics["occupation_tvd"]:.4f} (similarity: {(1-utility_metrics["occupation_tvd"])*100:.2f}%)')
-print(f'Education JSD: {utility_metrics["education_jsd"]:.4f} (quality: {(1-utility_metrics["education_jsd"])*100:.2f}%)')
-print(f'Occupation JSD: {utility_metrics["occupation_jsd"]:.4f} (quality: {(1-utility_metrics["occupation_jsd"])*100:.2f}%)')
-print(f'Education Distribution: {utility_metrics["education_dist_acc"]*100:.2f}% preserved')
-print(f'Occupation Distribution: {utility_metrics["occupation_dist_acc"]*100:.2f}% preserved')
-print(f'\nOVERALL UTILITY SCORE: {utility_metrics["overall_utility"]*100:.2f}%')
+print(f'Income MAE: ${utility_metrics_original["income_mae"]:,.2f}')
+print(f'Education TVD: {utility_metrics_original["education_tvd"]:.4f} (similarity: {(1-utility_metrics_original["education_tvd"])*100:.2f}%)')
+print(f'Occupation TVD: {utility_metrics_original["occupation_tvd"]:.4f} (similarity: {(1-utility_metrics_original["occupation_tvd"])*100:.2f}%)')
+print(f'Education JSD: {utility_metrics_original["education_jsd"]:.4f} (quality: {(1-utility_metrics_original["education_jsd"])*100:.2f}%)')
+print(f'Occupation JSD: {utility_metrics_original["occupation_jsd"]:.4f} (quality: {(1-utility_metrics_original["occupation_jsd"])*100:.2f}%)')
+print(f'Education Distribution: {utility_metrics_original["education_dist_acc"]*100:.2f}% preserved')
+print(f'Occupation Distribution: {utility_metrics_original["occupation_dist_acc"]*100:.2f}% preserved')
+print(f'\nOVERALL UTILITY SCORE: {utility_metrics_original["overall_utility"]*100:.2f}%')
 
-if utility_metrics['overall_utility'] >= config.UTILITY_THRESHOLDS['excellent']:
+if utility_metrics_original['overall_utility'] >= config.UTILITY_THRESHOLDS['excellent']:
     assessment = 'EXCELLENT - Dataset is highly usable'
-elif utility_metrics['overall_utility'] >= config.UTILITY_THRESHOLDS['good']:
+elif utility_metrics_original['overall_utility'] >= config.UTILITY_THRESHOLDS['good']:
     assessment = 'GOOD - Dataset is usable for many tasks'
-elif utility_metrics['overall_utility'] >= config.UTILITY_THRESHOLDS['moderate']:
+elif utility_metrics_original['overall_utility'] >= config.UTILITY_THRESHOLDS['moderate']:
+    assessment = 'MODERATE - Dataset has limited utility'
+else:
+    assessment = 'POOR - Dataset utility is significantly degraded'
+
+print(f'Assessment: {assessment}')
+
+print('\n6.2 Utility Assessment for Adaptive Budget DP:')
+print('-'*80)
+utility_metrics_adaptive = assess_utility(census_enhanced, census_adaptive_dp)
+
+print(f'Income MAE: ${utility_metrics_adaptive["income_mae"]:,.2f}')
+print(f'Education TVD: {utility_metrics_adaptive["education_tvd"]:.4f} (similarity: {(1-utility_metrics_adaptive["education_tvd"])*100:.2f}%)')
+print(f'Occupation TVD: {utility_metrics_adaptive["occupation_tvd"]:.4f} (similarity: {(1-utility_metrics_adaptive["occupation_tvd"])*100:.2f}%)')
+print(f'Education JSD: {utility_metrics_adaptive["education_jsd"]:.4f} (quality: {(1-utility_metrics_adaptive["education_jsd"])*100:.2f}%)')
+print(f'Occupation JSD: {utility_metrics_adaptive["occupation_jsd"]:.4f} (quality: {(1-utility_metrics_adaptive["occupation_jsd"])*100:.2f}%)')
+print(f'Education Distribution: {utility_metrics_adaptive["education_dist_acc"]*100:.2f}% preserved')
+print(f'Occupation Distribution: {utility_metrics_adaptive["occupation_dist_acc"]*100:.2f}% preserved')
+print(f'\nOVERALL UTILITY SCORE: {utility_metrics_adaptive["overall_utility"]*100:.2f}%')
+
+if utility_metrics_adaptive['overall_utility'] >= config.UTILITY_THRESHOLDS['excellent']:
+    assessment = 'EXCELLENT - Dataset is highly usable'
+elif utility_metrics_adaptive['overall_utility'] >= config.UTILITY_THRESHOLDS['good']:
+    assessment = 'GOOD - Dataset is usable for many tasks'
+elif utility_metrics_adaptive['overall_utility'] >= config.UTILITY_THRESHOLDS['moderate']:
+    assessment = 'MODERATE - Dataset has limited utility'
+else:
+    assessment = 'POOR - Dataset utility is significantly degraded'
+
+print(f'Assessment: {assessment}')
+
+print('\n6.3 Utility Assessment for Multi-Layer DP:')
+print('-'*80)
+utility_metrics_multilayer = assess_utility(census_enhanced, census_multilayer_dp)
+
+print(f'Income MAE: ${utility_metrics_multilayer["income_mae"]:,.2f}')
+print(f'Education TVD: {utility_metrics_multilayer["education_tvd"]:.4f} (similarity: {(1-utility_metrics_multilayer["education_tvd"])*100:.2f}%)')
+print(f'Occupation TVD: {utility_metrics_multilayer["occupation_tvd"]:.4f} (similarity: {(1-utility_metrics_multilayer["occupation_tvd"])*100:.2f}%)')
+print(f'Education JSD: {utility_metrics_multilayer["education_jsd"]:.4f} (quality: {(1-utility_metrics_multilayer["education_jsd"])*100:.2f}%)')
+print(f'Occupation JSD: {utility_metrics_multilayer["occupation_jsd"]:.4f} (quality: {(1-utility_metrics_multilayer["occupation_jsd"])*100:.2f}%)')
+print(f'Education Distribution: {utility_metrics_multilayer["education_dist_acc"]*100:.2f}% preserved')
+print(f'Occupation Distribution: {utility_metrics_multilayer["occupation_dist_acc"]*100:.2f}% preserved')
+print(f'\nOVERALL UTILITY SCORE: {utility_metrics_multilayer["overall_utility"]*100:.2f}%')
+
+if utility_metrics_multilayer['overall_utility'] >= config.UTILITY_THRESHOLDS['excellent']:
+    assessment = 'EXCELLENT - Dataset is highly usable'
+elif utility_metrics_multilayer['overall_utility'] >= config.UTILITY_THRESHOLDS['good']:
+    assessment = 'GOOD - Dataset is usable for many tasks'
+elif utility_metrics_multilayer['overall_utility'] >= config.UTILITY_THRESHOLDS['moderate']:
     assessment = 'MODERATE - Dataset has limited utility'
 else:
     assessment = 'POOR - Dataset utility is significantly degraded'
@@ -260,7 +308,11 @@ results = {
         }
     },
     'dp_sgd_results': dp_sgd_results,
-    'utility_metrics': utility_metrics
+    'utility_metrics': {
+        'Original Laplace': utility_metrics_original,
+        'Adaptive Budget': utility_metrics_adaptive,
+        'Multi-Layer': utility_metrics_multilayer
+    }
 }
 
 with open('results/results.pkl', 'wb') as f:

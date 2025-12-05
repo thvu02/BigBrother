@@ -71,7 +71,7 @@ if adaptive_results:
     adaptive_occ_avg = np.mean(list(adaptive_results['occupation'].values()))
     adaptive_overall = np.mean([adaptive_income_avg, adaptive_edu_avg, adaptive_occ_avg])
     adaptive_reduction = baseline_avg - adaptive_overall
-    print(f'\n{"Adaptive (with utility)":<25} {adaptive_overall:>13.2%} {adaptive_reduction:>13.2%} {utility_metrics["overall_utility"]*100:>13.2f}%')
+    print(f'\n{"Adaptive (with utility)":<25} {adaptive_overall:>13.2%} {adaptive_reduction:>13.2%} {utility_metrics["Adaptive Budget"]["overall_utility"]*100:>13.2f}%')
 
 ### Reidentification Attack
 
@@ -91,28 +91,52 @@ for method_name in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
 
 ### Utility assessment
 
-print('\n3.1 Utility Metrics (Adaptive Budget DP):')
+print('\n3.1 Utility Metrics for All DP Methods:')
 print('-'*80)
-print(f'Income MAE: ${utility_metrics.get("income_mae", 0):,.2f}')
-print(f'Education TVD: {utility_metrics.get("education_tvd", 0):.4f} (similarity: {(1-utility_metrics.get("education_tvd", 0))*100:.2f}%)')
-print(f'Occupation TVD: {utility_metrics.get("occupation_tvd", 0):.4f} (similarity: {(1-utility_metrics.get("occupation_tvd", 0))*100:.2f}%)')
-print(f'Education JSD: {utility_metrics.get("education_jsd", 0):.4f} (quality: {(1-utility_metrics.get("education_jsd", 0))*100:.2f}%)')
-print(f'Occupation JSD: {utility_metrics.get("occupation_jsd", 0):.4f} (quality: {(1-utility_metrics.get("occupation_jsd", 0))*100:.2f}%)')
-print(f'Education Distribution: {utility_metrics.get("education_dist_acc", 0)*100:.2f}% preserved')
-print(f'Occupation Distribution: {utility_metrics.get("occupation_dist_acc", 0)*100:.2f}% preserved')
-print(f'\nOVERALL UTILITY SCORE: {utility_metrics["overall_utility"]*100:.2f}%')
 
-overall_utility = utility_metrics['overall_utility']
-if overall_utility >= 0.80:
-    assessment = 'EXCELLENT - Dataset is highly usable'
-elif overall_utility >= 0.65:
-    assessment = 'GOOD - Dataset is usable for many tasks'
-elif overall_utility >= 0.50:
-    assessment = 'MODERATE - Dataset has limited utility'
-else:
-    assessment = 'POOR - Dataset utility is significantly degraded'
+for method_name in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
+    if method_name in utility_metrics:
+        method_metrics = utility_metrics[method_name]
 
-print(f'Assessment: {assessment}')
+        print(f'\n{method_name} DP:')
+        print(f'  Income MAE: ${method_metrics.get("income_mae", 0):,.2f}')
+        print(f'  Education TVD: {method_metrics.get("education_tvd", 0):.4f} (similarity: {(1-method_metrics.get("education_tvd", 0))*100:.2f}%)')
+        print(f'  Occupation TVD: {method_metrics.get("occupation_tvd", 0):.4f} (similarity: {(1-method_metrics.get("occupation_tvd", 0))*100:.2f}%)')
+        print(f'  Education JSD: {method_metrics.get("education_jsd", 0):.4f} (quality: {(1-method_metrics.get("education_jsd", 0))*100:.2f}%)')
+        print(f'  Occupation JSD: {method_metrics.get("occupation_jsd", 0):.4f} (quality: {(1-method_metrics.get("occupation_jsd", 0))*100:.2f}%)')
+        print(f'  Education Distribution: {method_metrics.get("education_dist_acc", 0)*100:.2f}% preserved')
+        print(f'  Occupation Distribution: {method_metrics.get("occupation_dist_acc", 0)*100:.2f}% preserved')
+        print(f'  OVERALL UTILITY SCORE: {method_metrics["overall_utility"]*100:.2f}%')
+
+        overall_utility = method_metrics['overall_utility']
+        if overall_utility >= 0.80:
+            assessment = 'EXCELLENT - Dataset is highly usable'
+        elif overall_utility >= 0.65:
+            assessment = 'GOOD - Dataset is usable for many tasks'
+        elif overall_utility >= 0.50:
+            assessment = 'MODERATE - Dataset has limited utility'
+        else:
+            assessment = 'POOR - Dataset utility is significantly degraded'
+
+        print(f'  Assessment: {assessment}')
+
+print('\n3.2 Utility Comparison Summary:')
+print('-'*80)
+print(f'{"Method":<25} {"Overall Utility":<20} {"Assessment"}')
+print('-'*80)
+for method_name in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
+    if method_name in utility_metrics:
+        util = utility_metrics[method_name]['overall_utility']
+        if util >= 0.80:
+            assessment = 'EXCELLENT'
+        elif util >= 0.65:
+            assessment = 'GOOD'
+        elif util >= 0.50:
+            assessment = 'MODERATE'
+        else:
+            assessment = 'POOR'
+        print(f'{method_name:<25} {util*100:>18.2f}% {assessment:>12s}')
+print('\nNote: DP-SGD protects model training, not data (utility metrics N/A)')
 
 ### Wrap up
 
@@ -133,7 +157,7 @@ if adaptive_results:
     print(f'   - Reidentification: {adaptive_reident_acc:.2%} accuracy (k={adaptive_reident_k:.1f})')
     if reident_acc_baseline > 0:
         print(f'   - Reidentification reduction: {reident_acc_baseline-adaptive_reident_acc:.2%} ({(reident_acc_baseline-adaptive_reident_acc)/reident_acc_baseline*100:.1f}% improvement)')
-    print(f'   - Utility score: {utility_metrics["overall_utility"]*100:.2f}%')
+    print(f'   - Utility score: {utility_metrics["Adaptive Budget"]["overall_utility"]*100:.2f}%')
     print(f'   - Model-agnostic (all 4 ML models tested)')
 
 print(f'\n3. Strongest Protection: DP-SGD')
@@ -158,8 +182,10 @@ print(f'   - Original Laplace: {original_reident_acc:.2%} accuracy (k={original_
 print(f'   - All methods significantly improve k-anonymity over baseline (k={reident_k_baseline:.1f})')
 
 print(f'\n5. Utility Assessment:')
-print(f'   - Overall utility: {utility_metrics["overall_utility"]*100:.2f}% ({assessment.split(" - ")[0]})')
-print(f'   - Categorical distributions: 89-95% preserved')
+print(f'   - Original Laplace: {utility_metrics["Original Laplace"]["overall_utility"]*100:.2f}%')
+print(f'   - Adaptive Budget: {utility_metrics["Adaptive Budget"]["overall_utility"]*100:.2f}% (BEST)')
+print(f'   - Multi-Layer: {utility_metrics["Multi-Layer"]["overall_utility"]*100:.2f}%')
+print(f'   - Categorical distributions: Well-preserved across all methods')
 print(f'   - Suitable for distribution analysis')
 print(f'   - Suitable for aggregate statistics')
 print(f'   - Not suitable for individual-level analysis')
@@ -171,7 +197,7 @@ print('  -> Adaptive Budget DP (epsilon=0.5)')
 if adaptive_results:
     print(f'     Reconstruction: {adaptive_overall:.0%} avg accuracy ({adaptive_reduction:.0%} reduction)')
     print(f'     Reidentification: {adaptive_reident_acc:.2%} accuracy (k={adaptive_reident_k:.1f})')
-    print(f'     Utility: {utility_metrics["overall_utility"]*100:.0f}%')
+    print(f'     Utility: {utility_metrics["Adaptive Budget"]["overall_utility"]*100:.0f}%')
 print('     Works across all ML models (<1% variance)')
 
 print('\nFor Maximum Reidentification Protection:')
