@@ -14,7 +14,6 @@ from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
 import config
 
-# classify income into categories based on thresholds
 def classify_income(income_value):
     if income_value < config.INCOME_THRESHOLDS['low']:
         return config.INCOME_LABELS['low']
@@ -301,7 +300,6 @@ def apply_multilayer_dp(census, epsilon=None, delta=None, k_threshold=None):
     zip_digits = config.ZIP_GENERALIZATION['multilayer']
     protected['zip_protected'] = protected['zip_code_enhanced'].astype(str).str[:zip_digits] + 'X' * (5 - zip_digits)
 
-    # Coarse age groups
     def classify_age_coarse(age):
         for group, (min_age, max_age) in config.AGE_GROUPS_COARSE.items():
             if min_age <= age <= max_age:
@@ -320,7 +318,6 @@ def apply_multilayer_dp(census, epsilon=None, delta=None, k_threshold=None):
 
     return suppressed
 
-# PyTorch neural network model for DP-SGD
 class SimpleNN(nn.Module):
     def __init__(self, input_size, hidden_sizes, output_size):
         super(SimpleNN, self).__init__()
@@ -335,7 +332,7 @@ class SimpleNN(nn.Module):
         x = self.fc3(x)
         return x
 
-# Real DP-SGD implementation using Opacus
+# DP-SGD implementation using Opacus
 class DPNeuralNetwork:
     def __init__(self, epsilon=None, delta=None, clip_norm=None):
         self.epsilon = epsilon if epsilon is not None else config.EPSILON

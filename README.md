@@ -54,7 +54,7 @@ Tests vulnerabilities **without protection**:
 ### 3. Differential Privacy Defense (Section 4)
 
 **Three Data Protection Methods**:
-1. **Original Laplace DP**: Classic DP with Laplace noise + randomized response
+1. **Laplace DP**: Classic DP with Laplace noise + randomized response
 2. **Adaptive Budget DP**: Optimized privacy budget allocation (★ RECOMMENDED)
 3. **Multi-Layer DP**: Gaussian noise + generalization + k-suppression
 
@@ -79,7 +79,7 @@ Evaluates data quality preservation:
 
 ## Privacy Mechanisms Tested
 
-### Method 1: Original Laplace DP
+### Method 1: Laplace DP
 **What it does**: Adds calibrated noise to data values
 
 **Protection mechanisms**:
@@ -280,7 +280,7 @@ Lower is better (harder for attackers):
 | Method | Accuracy | Interpretation |
 |--------|----------|----------------|
 | **Baseline** | 45% | Without protection |
-| **Original Laplace** | 38% | 15% relative reduction |
+| **Laplace** | 38% | 15% relative reduction |
 | **Adaptive Budget** | 35% | 22% relative reduction ★ |
 | **Multi-Layer** | 33% | 27% relative reduction |
 | **DP-SGD models** | 30-40% | 10-30% reduction when using DP training |
@@ -294,7 +294,7 @@ Higher k-anonymity is better:
 | Method | k-Anonymity | What It Means |
 |--------|-------------|---------------|
 | **Baseline** | 2-5 | Very identifiable! |
-| **Original Laplace** | 15-25 | Moderate protection |
+| **Laplace** | 15-25 | Moderate protection |
 | **Adaptive Budget** | 35-45 | Good protection ★ |
 | **Multi-Layer** | 70-100 | Excellent protection |
 
@@ -309,7 +309,7 @@ Higher is better (less distortion):
 | Method | Score | Assessment |
 |--------|-------|------------|
 | **Adaptive Budget** | 85-95% | EXCELLENT ★ |
-| **Original Laplace** | 80-90% | EXCELLENT |
+| **Laplace** | 80-90% | EXCELLENT |
 | **Multi-Layer** | 75-85% | GOOD/EXCELLENT |
 
 **Components**:

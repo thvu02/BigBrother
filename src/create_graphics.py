@@ -19,7 +19,6 @@ baseline_reconstruction = results['baseline_reconstruction']
 baseline_reidentification = results['baseline_reidentification']
 all_dp_methods = results['all_dp_methods']
 dp_reidentification = results['dp_reidentification']
-dp_sgd_results = results['dp_sgd_results']
 utility_metrics = results['utility_metrics']
 
 baseline_reident_acc = baseline_reidentification['acc'] * 100
@@ -54,18 +53,6 @@ for method_name, method_results in all_dp_methods.items():
             'Average': overall_avg
         }
 
-# Only add DP-SGD from dp_sgd_results if it wasn't already added from all_dp_methods
-# dp_sgd_results contains DP model attack performance (not protection effectiveness)
-# We want protection effectiveness, which comes from all_dp_methods['DP-SGD']
-if 'DP-SGD' not in dp_reconstruction:
-    # Fallback: Use DP-SGD model attack results (old behavior)
-    dp_reconstruction['DP-SGD'] = {
-        'Income': dp_sgd_results['income'] * 100,
-        'Education': dp_sgd_results['education'] * 100,
-        'Occupation': dp_sgd_results['occupation'] * 100,
-        'Average': np.mean([dp_sgd_results['income'], dp_sgd_results['education'], dp_sgd_results['occupation']]) * 100
-    }
-
 dp_reident_acc = {'Baseline': baseline_reident_acc}
 dp_reident_k = {'Baseline': baseline_reident_k}
 
@@ -96,9 +83,8 @@ for attr in ['income', 'education', 'occupation']:
 
 utility_scores = {
     'Adaptive Budget': utility_metrics['Adaptive Budget']['overall_utility'] * 100,
-    'Original Laplace': utility_metrics['Original Laplace']['overall_utility'] * 100,
-    'Multi-Layer': utility_metrics['Multi-Layer']['overall_utility'] * 100,
-    'DP-SGD': utility_metrics.get('DP-SGD', {}).get('overall_utility', 0) * 100
+    'Laplace': utility_metrics['Laplace']['overall_utility'] * 100,
+    'Multi-Layer': utility_metrics['Multi-Layer']['overall_utility'] * 100
 }
 
 fig = plt.figure(figsize=(20, 12))
@@ -163,8 +149,8 @@ plt.setp(ax2.xaxis.get_majorticklabels(), rotation=15, ha='right')
 
 # ==================== PANEL 3: Reconstruction Attack Comparison ====================
 ax3 = fig.add_subplot(gs[0, 2])
-methods_recon_display = ['Baseline', 'Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
-methods_recon_keys = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']
+methods_recon_display = ['Baseline', 'Laplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+methods_recon_keys = ['Baseline', 'Laplace', 'Adaptive Budget', 'Multi-Layer']
 avg_accuracies = [dp_reconstruction[m]['Average'] for m in methods_recon_keys]
 colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 
@@ -191,7 +177,7 @@ ax3.grid(axis='y', alpha=0.3)
 ax4 = fig.add_subplot(gs[1, :2])
 heatmap_data = []
 heatmap_labels = []
-for method in ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
+for method in ['Baseline', 'Laplace', 'Adaptive Budget', 'Multi-Layer']:
     row = [dp_reconstruction[method]['Income'],
            dp_reconstruction[method]['Education'],
            dp_reconstruction[method]['Occupation']]
@@ -257,9 +243,9 @@ for method in dp_reconstruction.keys():
     else:
         privacy_protection[method] = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction[method]['Average']) / dp_reconstruction['Baseline']['Average'] * 100
 
-plot_methods = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']
+plot_methods = ['Baseline', 'Laplace', 'Adaptive Budget', 'Multi-Layer']
 x_vals = [privacy_protection[m] for m in plot_methods]
-y_vals = [0, utility_scores['Original Laplace'], utility_scores['Adaptive Budget'], utility_scores['Multi-Layer']]
+y_vals = [0, utility_scores['Laplace'], utility_scores['Adaptive Budget'], utility_scores['Multi-Layer']]
 colors6 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 sizes = [200, 200, 300, 200]
 
@@ -289,7 +275,7 @@ ax6.grid(alpha=0.3)
 ax7 = fig.add_subplot(gs[2, 1:])
 
 summary_data = {}
-for method in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
+for method in ['Laplace', 'Adaptive Budget', 'Multi-Layer']:
     reident_reduction = (baseline_reident_acc - dp_reident_acc[method]) / baseline_reident_acc * 100 if baseline_reident_acc > 0 else 0
     recon_reduction = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction[method]['Average']) / dp_reconstruction['Baseline']['Average'] * 100
     k_improvement = dp_reident_k[method] / baseline_reident_k if dp_reident_k[method] > 0 and baseline_reident_k > 0 else 0
@@ -305,7 +291,7 @@ metrics = ['Reident.\nReduction', 'Recon.\nReduction', 'k-Anonymity\nImprovement
 x = np.arange(len(metrics))
 width = 0.25
 
-methods_summary = ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']
+methods_summary = ['Laplace', 'Adaptive Budget', 'Multi-Layer']
 colors_summary = ['#3498db', '#2ecc71', '#9b59b6']
 
 # Normalize k-anonymity for visualization (multiply by 10)
@@ -344,8 +330,8 @@ fig2.suptitle('Master Privacy Analysis - Key Findings', fontsize=16, fontweight=
 
 # ==================== KEY FINDING 1: Reidentification Protection Effectiveness ====================
 ax = axes[0, 0]
-methods_ef = ['Baseline', 'Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
-reident_acc_ef = [dp_reident_acc['Baseline'], dp_reident_acc['Original Laplace'],
+methods_ef = ['Baseline', 'Laplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+reident_acc_ef = [dp_reident_acc['Baseline'], dp_reident_acc['Laplace'],
                   dp_reident_acc['Adaptive Budget'], dp_reident_acc['Multi-Layer']]
 colors_ef = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 
@@ -369,9 +355,9 @@ ax.grid(axis='y', alpha=0.3)
 # ==================== KEY FINDING 2: Adaptive Budget Advantage ====================
 ax = axes[0, 1]
 attributes2 = ['Income', 'Education', 'Occupation']
-equal_budget = [dp_reconstruction['Original Laplace']['Income'],
-                dp_reconstruction['Original Laplace']['Education'],
-                dp_reconstruction['Original Laplace']['Occupation']]
+equal_budget = [dp_reconstruction['Laplace']['Income'],
+                dp_reconstruction['Laplace']['Education'],
+                dp_reconstruction['Laplace']['Occupation']]
 adaptive_budget = [dp_reconstruction['Adaptive Budget']['Income'],
                    dp_reconstruction['Adaptive Budget']['Education'],
                    dp_reconstruction['Adaptive Budget']['Occupation']]
@@ -379,7 +365,7 @@ adaptive_budget = [dp_reconstruction['Adaptive Budget']['Income'],
 x2 = np.arange(len(attributes2))
 width2 = 0.35
 
-bars1 = ax.bar(x2 - width2/2, equal_budget, width2, label='Equal Budget\n(Original Laplace)',
+bars1 = ax.bar(x2 - width2/2, equal_budget, width2, label='Equal Budget\n(Laplace)',
               color='#3498db', alpha=0.7, edgecolor='black', linewidth=1.5)
 bars2 = ax.bar(x2 + width2/2, adaptive_budget, width2, label='Adaptive Budget\n(Sensitivity-Based)',
               color='#2ecc71', alpha=0.7, edgecolor='black', linewidth=1.5)
@@ -409,7 +395,7 @@ for i in range(len(attributes2)):
 ax = axes[1, 0]
 methods3 = ['Baseline', 'Laplace', 'Adaptive', 'Multi-Layer']
 avg_acc3 = [dp_reconstruction['Baseline']['Average'],
-            dp_reconstruction['Original Laplace']['Average'],
+            dp_reconstruction['Laplace']['Average'],
             dp_reconstruction['Adaptive Budget']['Average'],
             dp_reconstruction['Multi-Layer']['Average']]
 colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
@@ -417,7 +403,7 @@ colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 bars3 = ax.bar(methods3, avg_acc3, color=colors3, alpha=0.7, edgecolor='black', linewidth=2)
 ax.set_ylabel('Average Reconstruction Accuracy (%)', fontweight='bold', fontsize=11)
 multilayer_reduction = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['Multi-Layer']['Average']) / dp_reconstruction['Baseline']['Average'] * 100
-ax.set_title(f'KEY FINDING 3: Multi-Layer DP Provides\nStrong Reconstruction Protection ({multilayer_reduction:.0f}% Below Baseline)',
+ax.set_title(f'KEY FINDING 3: Adaptive Budget DP Provides\nStrong Reconstruction Protection ({multilayer_reduction:.0f}% Below Baseline)',
             fontweight='bold', fontsize=12)
 ax.axhline(y=25, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Random Baseline (25%)')
 
@@ -436,8 +422,8 @@ ax.grid(axis='y', alpha=0.3)
 
 # ==================== KEY FINDING 4: Utility Preserved ====================
 ax = axes[1, 1]
-methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
-utilities = [utility_scores['Original Laplace'],
+methods4 = ['Laplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+utilities = [utility_scores['Laplace'],
              utility_scores['Adaptive Budget'],
              utility_scores['Multi-Layer']]
 colors4 = ['#3498db', '#2ecc71', '#9b59b6']

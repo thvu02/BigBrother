@@ -49,7 +49,7 @@ print(f'Feature matrix: {X.shape} ({len(all_interests)} unique interests)')
 
 ### BASELINE ATTACKS (NO DEFENSES)
 
-print('\n3.1 Reidentification Attack')
+print('\n1.1 Reidentification Attack')
 print('-'*80)
 
 reident_baseline = reidentification_attack(ad_enhanced, census_enhanced)
@@ -60,7 +60,7 @@ print(f'Accuracy: {reident_acc_baseline:.2%}')
 print(f'Average k-anonymity: {reident_k_baseline:.2f}')
 print(f'Interpretation: {reident_acc_baseline*100:.1f}% of users successfully reidentified')
 
-print('\n3.2 Reconstruction Attacks (Multiple ML Models)')
+print('\n1.2 Reconstruction Attacks (Multiple ML Models)')
 print('-'*80)
 
 baseline_reconstruction = {}
@@ -100,21 +100,21 @@ print(f'\nAverage baseline accuracy: {baseline_avg:.2%}')
 
 all_dp_methods = {}
 
-print(f'\n4.1 Method 1: Original Laplace + Randomized Response (epsilon={config.EPSILON})')
+print(f'\n2.1 Method 1: Laplace + Randomized Response (epsilon={config.EPSILON})')
 print('-'*80)
 
 census_original_dp = apply_original_dp(census_enhanced)
 print(f'p_true (randomized response): {np.exp(config.EPSILON)/(np.exp(config.EPSILON)+1):.2%}')
 print('Applied: Laplace noise to income, Randomized Response to categorical')
 
-print('\nReidentification attack on Original Laplace DP:')
+print('\nReidentification attack on Laplace DP:')
 reident_original_dp = reidentification_attack(ad_enhanced, census_original_dp)
 reident_acc_original_dp = reident_original_dp['correct'].mean()
 reident_k_original_dp = reident_original_dp['k_anonymity'].mean()
 print(f'  Accuracy: {reident_acc_original_dp:.2%} (baseline: {reident_acc_baseline:.2%}, reduction: {reident_acc_baseline-reident_acc_original_dp:.2%})')
 print(f'  k-anonymity: {reident_k_original_dp:.2f} (baseline: {reident_k_baseline:.2f}, improvement: {reident_k_original_dp-reident_k_baseline:.2f})')
 
-print(f'\n4.2 Method 2: Adaptive Budget Allocation (epsilon={config.EPSILON})')
+print(f'\n2.2 Method 2: Adaptive Budget Allocation (epsilon={config.EPSILON})')
 print('-'*80)
 
 census_adaptive_dp = apply_adaptive_dp(census_enhanced)
@@ -130,7 +130,7 @@ reident_k_adaptive_dp = reident_adaptive_dp['k_anonymity'].mean()
 print(f'  Accuracy: {reident_acc_adaptive_dp:.2%} (baseline: {reident_acc_baseline:.2%}, reduction: {reident_acc_baseline-reident_acc_adaptive_dp:.2%})')
 print(f'  k-anonymity: {reident_k_adaptive_dp:.2f} (baseline: {reident_k_baseline:.2f}, improvement: {reident_k_adaptive_dp-reident_k_baseline:.2f})')
 
-print(f'\n4.3 Method 3: Multi-Layer DP (epsilon={config.EPSILON}, delta={config.DELTA})')
+print(f'\n2.3 Method 3: Multi-Layer DP (epsilon={config.EPSILON}, delta={config.DELTA})')
 print('-'*80)
 
 census_multilayer_dp = apply_multilayer_dp(census_enhanced)
@@ -144,23 +144,11 @@ reident_k_multilayer_dp = reident_multilayer_dp['k_anonymity'].mean()
 print(f'  Accuracy: {reident_acc_multilayer_dp:.2%} (baseline: {reident_acc_baseline:.2%}, reduction: {reident_acc_baseline-reident_acc_multilayer_dp:.2%})')
 print(f'  k-anonymity: {reident_k_multilayer_dp:.2f} (baseline: {reident_k_baseline:.2f}, improvement: {reident_k_multilayer_dp-reident_k_baseline:.2f})')
 
-print(f'\n4.4 Method 4: DP-SGD for Neural Networks (epsilon={config.EPSILON}, delta={config.DELTA})')
+print(f'\n2.4 Method 4: DP-SGD for Neural Networks (epsilon={config.EPSILON}, delta={config.DELTA})')
 print('-'*80)
-print('NOTE: DP-SGD protects MODEL TRAINING, not data. We test how accurate DP models are.')
-print('This is different from other methods which create protected datasets.')
-print('\nTraining DP-SGD models for reconstruction attacks...')
-print('This may take several minutes...')
 
 dp_sgd_results = {}
-
 for idx, attr in enumerate(['income', 'education', 'occupation']):
-    # Show verbose output for first attribute only
-    show_verbose = (idx == 0)
-    if show_verbose:
-        print(f'  Training DP model for {attr} (with verbose output)...')
-    else:
-        print(f'  Training DP model for {attr}...')
-
     census_indexed = census_enhanced.set_index('person_id')
     if attr == 'income':
         y = census_indexed.loc[X.index]['income'].apply(classify_income)
@@ -172,32 +160,23 @@ for idx, attr in enumerate(['income', 'education', 'occupation']):
     )
 
     dp_sgd = DPNeuralNetwork()
-    dp_sgd.fit(X_train, y_train, verbose=show_verbose)
+    dp_sgd.fit(X_train, y_train, verbose=False)
     y_pred = dp_sgd.predict(X_test)
 
     dp_sgd_results[attr] = accuracy_score(y_test, y_pred)
-    if show_verbose:
-        print()
 
 print('\nDP-SGD Model Utility (Accuracy on Test Set):')
 print('NOTE: This measures the UTILITY of DP-trained models, NOT attack success.')
-print('DP-SGD defends against membership inference attacks (not shown here).\n')
 for attr, acc in dp_sgd_results.items():
     baseline_nn = baseline_reconstruction[attr]['Neural Network']
     print(f'  {attr.capitalize():12s}: {acc:.2%} (non-DP baseline: {baseline_nn:.2%}, DP cost: {baseline_nn-acc:.2%})')
 
-print('\nInterpretation:')
-print('- DP-SGD provides formal privacy guarantees for MODEL publishing (not data publishing)')
-print('- Utility cost: The accuracy reduction when training with differential privacy')
-print('- This protects against membership inference attacks on the published model')
-print('- NOT comparable to data protection methods (different threat model)')
-
 ### TESTING ALL DP METHODS WITH ALL ML MODELS
 
-print('\n5.1 Original Laplace DP - All Models:')
+print('\n3.1 Laplace DP - All Models:')
 print('-'*80)
 original_dp_results = test_all_models_with_dp(X, census_original_dp, baseline_reconstruction)
-all_dp_methods['Original Laplace'] = original_dp_results
+all_dp_methods['Laplace'] = original_dp_results
 
 for attr in ['income', 'education', 'occupation']:
     if original_dp_results[attr]:
@@ -206,7 +185,7 @@ for attr in ['income', 'education', 'occupation']:
             baseline = baseline_reconstruction[attr][model]
             print(f'  {model:20s}: {acc:.2%} (baseline: {baseline:.2%}, reduction: {baseline-acc:.2%})')
 
-print('\n5.2 Adaptive Budget DP - All Models:')
+print('\n3.2 Adaptive Budget DP - All Models:')
 print('-'*80)
 adaptive_dp_results = test_all_models_with_dp(X, census_adaptive_dp, baseline_reconstruction)
 all_dp_methods['Adaptive Budget'] = adaptive_dp_results
@@ -218,7 +197,7 @@ for attr in ['income', 'education', 'occupation']:
             baseline = baseline_reconstruction[attr][model]
             print(f'  {model:20s}: {acc:.2%} (baseline: {baseline:.2%}, reduction: {baseline-acc:.2%})')
 
-print('\n5.3 Multi-Layer DP - All Models:')
+print('\n3.3 Multi-Layer DP - All Models:')
 print('-'*80)
 multilayer_dp_results = test_all_models_with_dp(X, census_multilayer_dp, baseline_reconstruction)
 all_dp_methods['Multi-Layer'] = multilayer_dp_results
@@ -232,7 +211,7 @@ for attr in ['income', 'education', 'occupation']:
 
 ### UTILITY ASSESSMENT
 
-print('\n6.1 Utility Assessment for Original Laplace DP:')
+print('\n4.1 Utility Assessment for Laplace DP:')
 print('-'*80)
 utility_metrics_original = assess_utility(census_enhanced, census_original_dp)
 
@@ -256,7 +235,7 @@ else:
 
 print(f'Assessment: {assessment}')
 
-print('\n6.2 Utility Assessment for Adaptive Budget DP:')
+print('\n4.2 Utility Assessment for Adaptive Budget DP:')
 print('-'*80)
 utility_metrics_adaptive = assess_utility(census_enhanced, census_adaptive_dp)
 
@@ -280,7 +259,7 @@ else:
 
 print(f'Assessment: {assessment}')
 
-print('\n6.3 Utility Assessment for Multi-Layer DP:')
+print('\n4.3 Utility Assessment for Multi-Layer DP:')
 print('-'*80)
 utility_metrics_multilayer = assess_utility(census_enhanced, census_multilayer_dp)
 
@@ -304,12 +283,6 @@ else:
 
 print(f'Assessment: {assessment}')
 
-print('\nNOTE: DP-SGD utility assessment not applicable.')
-print('DP-SGD protects model training, not data. It does not create a "protected dataset".')
-print('DP-SGD results are shown in section 4.4 (model attack accuracy).')
-
-### save results to .pkl file
-
 results = {
     'baseline_reconstruction': baseline_reconstruction,
     'baseline_reidentification': {
@@ -318,7 +291,7 @@ results = {
     },
     'all_dp_methods': all_dp_methods,
     'dp_reidentification': {
-        'Original Laplace': {
+        'Laplace': {
             'acc': reident_acc_original_dp,
             'k': reident_k_original_dp
         },
@@ -333,7 +306,7 @@ results = {
     },
     'dp_sgd_results': dp_sgd_results,
     'utility_metrics': {
-        'Original Laplace': utility_metrics_original,
+        'Laplace': utility_metrics_original,
         'Adaptive Budget': utility_metrics_adaptive,
         'Multi-Layer': utility_metrics_multilayer
     }
