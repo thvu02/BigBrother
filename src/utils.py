@@ -379,15 +379,27 @@ class DPNeuralNetwork:
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.model.parameters(), lr=0.01)
 
+        # Calculate appropriate noise multiplier for target epsilon
+        # For epsilon=0.5 (moderate privacy), use noise_multiplier ~1.3-1.5
+        # Higher noise = stronger privacy = lower model accuracy
+        # Formula: noise_scale = sqrt(2 * ln(1.25/delta)) / epsilon
+        # For DP-SGD, noise_multiplier should be calibrated to achieve target epsilon
+        # We use 1.3 as a reasonable starting point for epsilon=0.5
+        noise_multiplier = 1.3 if self.epsilon <= 0.5 else 1.0
+
         # Attach privacy engine
         privacy_engine = PrivacyEngine()
         self.model, optimizer, train_loader = privacy_engine.make_private(
             module=self.model,
             optimizer=optimizer,
             data_loader=train_loader,
-            noise_multiplier=1.0,  # Will be adjusted automatically
+            noise_multiplier=noise_multiplier,
             max_grad_norm=self.clip_norm,
         )
+
+        if verbose:
+            print(f'DP-SGD Configuration: epsilon_target={self.epsilon}, delta={self.delta}')
+            print(f'Noise multiplier: {noise_multiplier}, Clip norm: {self.clip_norm}')
 
         # Training loop
         self.model.train()
@@ -408,18 +420,20 @@ class DPNeuralNetwork:
             epsilon_spent = privacy_engine.get_epsilon(delta=self.delta)
 
             if verbose and (epoch + 1) % 10 == 0:
-                print(f'Epoch [{epoch+1}/{epochs}], Loss: {epoch_loss/len(train_loader):.4f}, ε: {epsilon_spent:.2f}')
+                print(f'Epoch [{epoch+1}/{epochs}], Loss: {epoch_loss/len(train_loader):.4f}, epsilon_spent: {epsilon_spent:.2f}/{self.epsilon}')
 
             # Stop if we've exceeded our privacy budget
             if epsilon_spent > self.epsilon:
                 if verbose:
                     print(f'Privacy budget exceeded at epoch {epoch+1}. Stopping training.')
+                    print(f'Final: epsilon_spent={epsilon_spent:.2f} > epsilon_target={self.epsilon}')
                 break
 
         # Final privacy accounting
         final_epsilon = privacy_engine.get_epsilon(delta=self.delta)
         if verbose:
-            print(f'Final DP guarantee: (ε={final_epsilon:.2f}, δ={self.delta})')
+            print(f'Training completed. Final DP guarantee: (epsilon={final_epsilon:.2f}, delta={self.delta})')
+            print(f'Privacy budget: {"EXCEEDED" if final_epsilon > self.epsilon else "WITHIN BUDGET"}')
 
         return self
 

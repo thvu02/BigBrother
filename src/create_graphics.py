@@ -163,10 +163,10 @@ plt.setp(ax2.xaxis.get_majorticklabels(), rotation=15, ha='right')
 
 # ==================== PANEL 3: Reconstruction Attack Comparison ====================
 ax3 = fig.add_subplot(gs[0, 2])
-methods_recon_display = ['Baseline', 'Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer', 'DP-SGD']
-methods_recon_keys = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer', 'DP-SGD']
+methods_recon_display = ['Baseline', 'Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
+methods_recon_keys = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']
 avg_accuracies = [dp_reconstruction[m]['Average'] for m in methods_recon_keys]
-colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22']
+colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 
 bars3 = ax3.bar(methods_recon_display, avg_accuracies, color=colors3, alpha=0.7, edgecolor='black', linewidth=1.5)
 ax3.set_ylabel('Average Reconstruction Accuracy (%)', fontweight='bold')
@@ -191,7 +191,7 @@ ax3.grid(axis='y', alpha=0.3)
 ax4 = fig.add_subplot(gs[1, :2])
 heatmap_data = []
 heatmap_labels = []
-for method in ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer', 'DP-SGD']:
+for method in ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
     row = [dp_reconstruction[method]['Income'],
            dp_reconstruction[method]['Education'],
            dp_reconstruction[method]['Occupation']]
@@ -202,11 +202,11 @@ heatmap_data = np.array(heatmap_data)
 im = ax4.imshow(heatmap_data, cmap='RdYlGn_r', aspect='auto', vmin=0, vmax=75)
 
 ax4.set_xticks(np.arange(3))
-ax4.set_yticks(np.arange(5))
+ax4.set_yticks(np.arange(4))
 ax4.set_xticklabels(['Income\n(4 classes)', 'Education\n(6 classes)', 'Occupation\n(11 classes)'], fontweight='bold')
 ax4.set_yticklabels(heatmap_labels, fontweight='bold')
 
-for i in range(5):
+for i in range(4):
     for j in range(3):
         value = heatmap_data[i, j]
         text_color = 'white' if value > 40 else 'black'
@@ -257,11 +257,11 @@ for method in dp_reconstruction.keys():
     else:
         privacy_protection[method] = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction[method]['Average']) / dp_reconstruction['Baseline']['Average'] * 100
 
-plot_methods = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer', 'DP-SGD']
+plot_methods = ['Baseline', 'Original Laplace', 'Adaptive Budget', 'Multi-Layer']
 x_vals = [privacy_protection[m] for m in plot_methods]
-y_vals = [0, utility_scores['Original Laplace'], utility_scores['Adaptive Budget'], utility_scores['Multi-Layer'], utility_scores.get('DP-SGD', 0)]
-colors6 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22']
-sizes = [200, 200, 300, 200, 200]
+y_vals = [0, utility_scores['Original Laplace'], utility_scores['Adaptive Budget'], utility_scores['Multi-Layer']]
+colors6 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
+sizes = [200, 200, 300, 200]
 
 for i, (x, y, method, color, size) in enumerate(zip(x_vals, y_vals, plot_methods, colors6, sizes)):
     ax6.scatter(x, y, s=size, color=color, alpha=0.7, edgecolors='black', linewidth=2, zorder=3)
@@ -301,29 +301,12 @@ for method in ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']:
         'Utility': utility_scores.get(method, 0)
     }
 
-# DP-SGD now produces protected data and has proper metrics
-if 'DP-SGD' in dp_reidentification:
-    summary_data['DP-SGD'] = {
-        'Reident. Reduction': (dp_reidentification['Baseline']['acc'] - dp_reidentification['DP-SGD']['acc']) / dp_reidentification['Baseline']['acc'] * 100,
-        'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
-        'k-Anonymity': (dp_reidentification['DP-SGD']['k'] - dp_reidentification['Baseline']['k']) / dp_reidentification['Baseline']['k'] * 100,
-        'Utility': utility_scores.get('DP-SGD', 0)
-    }
-else:
-    # Fallback if DP-SGD data not available
-    summary_data['DP-SGD'] = {
-        'Reident. Reduction': 0,
-        'Recon. Reduction': (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100,
-        'k-Anonymity': 0,
-        'Utility': utility_scores.get('DP-SGD', 0)
-    }
-
 metrics = ['Reident.\nReduction', 'Recon.\nReduction', 'k-Anonymity\nImprovement', 'Utility']
 x = np.arange(len(metrics))
-width = 0.2
+width = 0.25
 
-methods_summary = ['Original Laplace', 'Adaptive Budget', 'Multi-Layer', 'DP-SGD']
-colors_summary = ['#3498db', '#2ecc71', '#9b59b6', '#e67e22']
+methods_summary = ['Original Laplace', 'Adaptive Budget', 'Multi-Layer']
+colors_summary = ['#3498db', '#2ecc71', '#9b59b6']
 
 # Normalize k-anonymity for visualization (multiply by 10)
 for i, method in enumerate(methods_summary):
@@ -422,20 +405,19 @@ for i in range(len(attributes2)):
                ha='center', va='center', fontsize=8, fontweight='bold',
                bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7))
 
-# ==================== KEY FINDING 3: DP-SGD Strongest Reconstruction Protection ====================
+# ==================== KEY FINDING 3: Multi-Layer DP Strong Protection ====================
 ax = axes[1, 0]
-methods3 = ['Baseline', 'Laplace', 'Adaptive', 'Multi-Layer', 'DP-SGD']
+methods3 = ['Baseline', 'Laplace', 'Adaptive', 'Multi-Layer']
 avg_acc3 = [dp_reconstruction['Baseline']['Average'],
             dp_reconstruction['Original Laplace']['Average'],
             dp_reconstruction['Adaptive Budget']['Average'],
-            dp_reconstruction['Multi-Layer']['Average'],
-            dp_reconstruction['DP-SGD']['Average']]
-colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22']
+            dp_reconstruction['Multi-Layer']['Average']]
+colors3 = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6']
 
 bars3 = ax.bar(methods3, avg_acc3, color=colors3, alpha=0.7, edgecolor='black', linewidth=2)
 ax.set_ylabel('Average Reconstruction Accuracy (%)', fontweight='bold', fontsize=11)
-dpsgd_reduction = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['DP-SGD']['Average']) / dp_reconstruction['Baseline']['Average'] * 100
-ax.set_title(f'KEY FINDING 3: DP-SGD Provides Strongest\nReconstruction Protection ({dpsgd_reduction:.0f}% Below Baseline)',
+multilayer_reduction = (dp_reconstruction['Baseline']['Average'] - dp_reconstruction['Multi-Layer']['Average']) / dp_reconstruction['Baseline']['Average'] * 100
+ax.set_title(f'KEY FINDING 3: Multi-Layer DP Provides\nStrong Reconstruction Protection ({multilayer_reduction:.0f}% Below Baseline)',
             fontweight='bold', fontsize=12)
 ax.axhline(y=25, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Random Baseline (25%)')
 
@@ -443,10 +425,10 @@ for i, (bar, acc) in enumerate(zip(bars3, avg_acc3)):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1.5,
            f'{acc:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=10)
 
-if dp_reconstruction['DP-SGD']['Average'] < 25:
-    ax.annotate('Below\nRandom!', xy=(4, dp_reconstruction['DP-SGD']['Average']), xytext=(3.5, 25),
-               arrowprops=dict(arrowstyle='->', color='red', lw=3),
-               fontsize=11, fontweight='bold', color='red',
+if dp_reconstruction['Multi-Layer']['Average'] < 30:
+    ax.annotate('Near\nRandom!', xy=(3, dp_reconstruction['Multi-Layer']['Average']), xytext=(2.5, 30),
+               arrowprops=dict(arrowstyle='->', color='green', lw=3),
+               fontsize=11, fontweight='bold', color='green',
                bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8))
 
 ax.legend(fontsize=9, loc='upper right')
@@ -454,13 +436,11 @@ ax.grid(axis='y', alpha=0.3)
 
 # ==================== KEY FINDING 4: Utility Preserved ====================
 ax = axes[1, 1]
-# All methods now have utility scores
-methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer', 'DP-SGD']
+methods4 = ['Original\nLaplace', 'Adaptive\nBudget', 'Multi-\nLayer']
 utilities = [utility_scores['Original Laplace'],
              utility_scores['Adaptive Budget'],
-             utility_scores['Multi-Layer'],
-             utility_scores.get('DP-SGD', 0)]
-colors4 = ['#3498db', '#2ecc71', '#9b59b6', '#e67e22']
+             utility_scores['Multi-Layer']]
+colors4 = ['#3498db', '#2ecc71', '#9b59b6']
 
 bars4 = ax.bar(methods4, utilities, color=colors4, alpha=0.7, edgecolor='black', linewidth=2)
 ax.set_ylabel('Overall Utility Score (%)', fontweight='bold', fontsize=11)

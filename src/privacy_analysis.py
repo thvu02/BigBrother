@@ -153,8 +153,14 @@ print('This may take several minutes...')
 
 dp_sgd_results = {}
 
-for attr in ['income', 'education', 'occupation']:
-    print(f'  Training DP model for {attr}...')
+for idx, attr in enumerate(['income', 'education', 'occupation']):
+    # Show verbose output for first attribute only
+    show_verbose = (idx == 0)
+    if show_verbose:
+        print(f'  Training DP model for {attr} (with verbose output)...')
+    else:
+        print(f'  Training DP model for {attr}...')
+
     census_indexed = census_enhanced.set_index('person_id')
     if attr == 'income':
         y = census_indexed.loc[X.index]['income'].apply(classify_income)
@@ -166,18 +172,25 @@ for attr in ['income', 'education', 'occupation']:
     )
 
     dp_sgd = DPNeuralNetwork()
-    dp_sgd.fit(X_train, y_train, verbose=False)
+    dp_sgd.fit(X_train, y_train, verbose=show_verbose)
     y_pred = dp_sgd.predict(X_test)
 
     dp_sgd_results[attr] = accuracy_score(y_test, y_pred)
+    if show_verbose:
+        print()
 
-print('\nDP-SGD Model Attack Accuracy (if attacker uses DP training):')
+print('\nDP-SGD Model Utility (Accuracy on Test Set):')
+print('NOTE: This measures the UTILITY of DP-trained models, NOT attack success.')
+print('DP-SGD defends against membership inference attacks (not shown here).\n')
 for attr, acc in dp_sgd_results.items():
     baseline_nn = baseline_reconstruction[attr]['Neural Network']
-    print(f'  {attr.capitalize():12s}: {acc:.2%} (baseline NN: {baseline_nn:.2%}, reduction: {baseline_nn-acc:.2%})')
+    print(f'  {attr.capitalize():12s}: {acc:.2%} (non-DP baseline: {baseline_nn:.2%}, DP cost: {baseline_nn-acc:.2%})')
 
-print('\nInterpretation: DP-SGD significantly reduces model accuracy while providing formal privacy guarantees.')
-print('DP-SGD is used when training models on sensitive data, not for creating protected datasets.')
+print('\nInterpretation:')
+print('- DP-SGD provides formal privacy guarantees for MODEL publishing (not data publishing)')
+print('- Utility cost: The accuracy reduction when training with differential privacy')
+print('- This protects against membership inference attacks on the published model')
+print('- NOT comparable to data protection methods (different threat model)')
 
 ### TESTING ALL DP METHODS WITH ALL ML MODELS
 
